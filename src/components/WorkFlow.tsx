@@ -1,19 +1,33 @@
-// src/components/WorkFlow.tsx
-import React, { useState } from 'react'; // Esto quitará el 90% de las líneas rojas
-import { Ticket, WorkBlock } from '../lib/store'; // Ruta corregida
+import React, { useState } from 'react';
+import { WorkBlock } from '../lib/store';
 
 interface TicketLoggerProps {
-  onAdd: (type: 'accionable' | 'conversacion') => void;
-  activeBlock?: WorkBlock;
+  // Ahora onAdd pide obligatoriamente el ticketId (string) antes del tipo
+  onAdd: (ticketId: string, type: 'accionable' | 'conversacion') => void;
+  activeBlock?: WorkBlock | null;
 }
 
 export const TicketLogger: React.FC<TicketLoggerProps> = ({ onAdd, activeBlock }) => {
   const [input, setInput] = useState('');
 
+  // Función interna para centralizar el envío y validación
+const handleAction = (type: 'accionable' | 'conversacion') => {
+    // Si es Accionable, SÍ obligamos a poner ticket
+    if (type === 'accionable' && !input.trim()) {
+      alert("⚠️ Por favor, ingresa el número de ticket primero.");
+      return;
+    }
+
+    // Si es Conversación y no hay input, le ponemos un texto genérico o el ID que haya
+    const finalId = input.trim() || `CONV-${Date.now().toString().slice(-4)}`;
+    
+    onAdd(finalId, type);
+    setInput(''); 
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && input.trim()) {
-      onAdd('accionable');
-      setInput('');
+    if (e.key === 'Enter') {
+      handleAction('accionable');
     }
   };
 
@@ -25,12 +39,14 @@ export const TicketLogger: React.FC<TicketLoggerProps> = ({ onAdd, activeBlock }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={!activeBlock}
           placeholder={activeBlock ? `Registrar ticket en ${activeBlock.name}...` : "No hay bloque activo"}
-          className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+          className="flex-1 bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button 
-          onClick={() => onAdd('conversacion')}
-          className="bg-blue-50 text-blue-600 px-6 py-3 rounded-xl hover:bg-blue-100 transition-colors font-bold flex items-center gap-2"
+          onClick={() => handleAction('conversacion')}
+          disabled={!activeBlock}
+          className="bg-blue-50 text-blue-600 px-6 py-3 rounded-xl hover:bg-blue-100 transition-colors font-bold flex items-center gap-2 disabled:opacity-50"
           title="Registrar Conversación (0.5 pts)"
         >
           <span>💬</span> Conversa
