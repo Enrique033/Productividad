@@ -9,8 +9,88 @@ import { downloadExcelByHour } from './lib/excel';
 import { Trash2, Clock, Plus, Download, Calendar } from 'lucide-react';
 
 export default function App() {
-  // Estado para manejar la fecha del calendario y filtrado
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  // 1. Agrega estos dos estados aquí arriba
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved === 'dark';
+  });
+  
+// --- ESTADOS ---
+const [isOnBreak, setIsOnBreak] = useState(false);
+
+const [breakSeconds, setBreakSeconds] = useState<number>(() => {
+  const saved = localStorage.getItem('breakSeconds');
+  return saved ? parseInt(saved, 10) : 0;
+});
+
+// --- EFECTOS ---
+
+// 1. Reset diario (Solo al cargar)
+useEffect(() => {
+  const lastDate = localStorage.getItem('breakDate');
+  const today = new Date().toLocaleDateString();
+
+  if (lastDate !== today) {
+    setBreakSeconds(0);
+    localStorage.setItem('breakDate', today);
+  }
+}, []);
+
+// 2. Persistencia (Guardar en cada cambio)
+useEffect(() => {
+  localStorage.setItem('breakSeconds', breakSeconds.toString());
+}, [breakSeconds]);
+
+// 3. EL CRONÓMETRO (Solo uno, unificado)
+useEffect(() => {
+  let interval: ReturnType<typeof setInterval> | undefined;
+
+  if (isOnBreak) {
+    interval = setInterval(() => {
+      setBreakSeconds(prev => {
+        // Límite de 1 hora
+        if (prev >= 3600) {
+          setIsOnBreak(false); 
+          return prev;
+        }
+        return prev + 1; // Ahora sí, de 1 en 1
+      });
+    }, 1000);
+  }
+
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}, [isOnBreak]);
+
+// Función para formatear el tiempo (MM:SS)
+const formatBreakTime = (seconds: number) => {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+};
+
+  // 2. Este efecto aplica la clase al HTML para que cambien los colores
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
+  // ... el resto de tus estados (tickets, blocks, etc.)
+
+ // Reemplaza la línea de selectedDate por esta:
+const [selectedDate, setSelectedDate] = useState(() => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`; // Siempre será la fecha local de tu PC
+});
 
   // 1. Estado de Bloques
   const [blocks, setBlocks] = useState<WorkBlock[]>(() => {
@@ -22,23 +102,31 @@ export default function App() {
   });
 
   // 2. Estado de Tickets (Usamos tickets_history para no perder días anteriores)
-  const [tickets, setTickets] = useState<Ticket[]>(() => {
-    const saved = localStorage.getItem('tickets_history');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return parsed.map((t: any) => ({ ...t, timestamp: new Date(t.timestamp) }));
-    }
-    return [];
-  });
-
+const [tickets, setTickets] = useState<Ticket[]>(() => {
+  const saved = localStorage.getItem('tickets_history');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    return parsed
+      .map((t: any) => ({ ...t, timestamp: new Date(t.timestamp) }))
+      // OPCIONAL: Si quieres borrar tickets que se crearon en el futuro por error:
+      .filter((t: any) => {
+         const tDate = new Date(t.timestamp);
+         // Si el ticket es de una fecha mayor a hoy, podrías filtrarlo aquí
+         return true; 
+      });
+  }
+  return [];
+});
   // Persistencia
   useEffect(() => { localStorage.setItem('work_blocks', JSON.stringify(blocks)); }, [blocks]);
   useEffect(() => { localStorage.setItem('tickets_history', JSON.stringify(tickets)); }, [tickets]);
 
   // FILTRO: Esto asegura que el Dashboard solo cuente lo del día seleccionado en el calendario
-  const filteredTickets = tickets.filter(t => 
-    new Date(t.timestamp).toISOString().split('T')[0] === selectedDate
-  );
+const filteredTickets = tickets.filter(t => {
+  const d = new Date(t.timestamp);
+  const tDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return tDate === selectedDate;
+});
 
   // 3. Cálculos Dinámicos
   const activeBlock = getActiveBlock(blocks);
@@ -53,25 +141,46 @@ export default function App() {
   }, 0);
 
   // Lógica de "Esperado a esta hora" para el Semáforo
-  const calculateExpected = () => {
-    if (!activeBlock) return totalPoints;
-    const [h, m] = activeBlock.start.split(':').map(Number);
-    const now = new Date();
-    const elapsed = (now.getHours() + now.getMinutes()/60) - (h + m/60);
-    return Math.max(0, elapsed * activeBlock.metaPerHour);
-  };
+// Lógica de "Esperado a esta hora" con impacto de Break
+const calculateExpected = () => {
+  if (!activeBlock) return totalPoints;
 
+  const [h, m] = activeBlock.start.split(':').map(Number);
+  const now = new Date();
+  
+  // 1. Tiempo total desde que empezaste el bloque
+  const totalElapsed = (now.getHours() + now.getMinutes()/60) - (h + m/60);
+  
+  // 2. Límite de break: 3600 segundos (1 hora)
+  const MAX_BREAK = 3600;
+  
+  // Usamos Math.min para que, aunque el cronómetro siga subiendo, 
+  // el semáforo solo te "perdone" hasta un máximo de 1 hora.
+  const effectiveBreakSeconds = Math.min(breakSeconds, MAX_BREAK);
+  const breakInHours = effectiveBreakSeconds / 3600;
+  
+  // 3. Tiempo efectivo (Si se pasa de 1 hora, el tiempo efectivo vuelve a subir)
+  const effectiveElapsed = Math.max(0, totalElapsed - breakInHours);
+  
+  return Math.max(0, effectiveElapsed * activeBlock.metaPerHour);
+};
   // 4. Funciones de Gestión
 const addTicket = (ticketId: string, type: 'accionable' | 'conversacion') => {
-  if (!activeBlock) return alert("⚠️ No hay bloque activo.");
-  
+  if (!activeBlock) return alert("⚠️ Selecciona un bloque primero");
+
+  // Creamos la fecha local combinando el día del calendario con la hora actual
+  const now = new Date();
+  const timePart = now.toTimeString().split(' ')[0]; // Obtiene HH:MM:SS
+  const fixedTimestamp = new Date(`${selectedDate}T${timePart}`);
+
   const newTicket: Ticket = {
-    id: ticketId, // <--- AQUÍ: Usamos el ID que viene del input, no uno aleatorio
+    id: ticketId,
     type,
-    timestamp: new Date(),
-    points: POINTS[type],
+    timestamp: fixedTimestamp, 
+    points: type === 'accionable' ? 1.0 : 0.5,
     blockId: activeBlock.id
   };
+
   setTickets([newTicket, ...tickets]);
 };
 
@@ -82,7 +191,18 @@ const addTicket = (ticketId: string, type: 'accionable' | 'conversacion') => {
   };
 
   return (
-    <Layout>
+    // En el return:
+<Layout 
+    isDark={isDark} 
+    setIsDark={setIsDark} 
+    isOnBreak={isOnBreak} 
+    setIsOnBreak={setIsOnBreak}
+    breakSeconds={breakSeconds}       // <-- Obligatorio pasar el estado
+    formatBreakTime={formatBreakTime} // <-- Obligatorio pasar la función
+  >
+  {/* El resto de tu dashboard */}
+      
+
       <div className="animate-in space-y-8">
         
         {/* SEMÁFORO DE RITMO */}
@@ -168,19 +288,19 @@ filteredTickets.map(ticket => (
 
           <aside className="space-y-6">
             <QuickActions 
-              onExport={(date) => {
-                setSelectedDate(date); // Al cambiar la fecha en el calendario, se actualiza la vista
-                downloadExcelByHour(tickets, blocks, date);
-              }} 
-              onClearAll={() => {
-                if (confirm("⚠️ ¿Estás seguro de que quieres borrar TODOS los registros del historial?")) {
-                  setTickets([]);
-                  localStorage.removeItem('tickets_history');
-                }
-              }}
-            />
-            <DistributionDonut tickets={filteredTickets} />
-            
+  date={selectedDate} // <--- ESTO ES LO QUE FALTA
+  onExport={(date) => {
+    setSelectedDate(date);
+    downloadExcelByHour(tickets, blocks, date);
+  }} 
+  onClearAll={() => {
+    if (confirm("⚠️ ¿Estás seguro?")) {
+      setTickets([]);
+      localStorage.removeItem('tickets_history');
+    }
+  }}
+/>
+
            {/* WIDGET BLOQUE ACTUAL */}
 <div className="bg-slate-900 p-6 rounded-[32px] text-white shadow-xl">
   <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-4">Estado del Turno</p>

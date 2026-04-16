@@ -3,9 +3,9 @@ import { Ticket, WorkBlock } from './store';
 
 export const downloadExcelByHour = (tickets: Ticket[], blocks: WorkBlock[], dateSelected: string) => {
   // Filtramos por la fecha seleccionada
-  const filtered = tickets.filter(t => 
-    new Date(t.timestamp).toISOString().split('T')[0] === dateSelected
-  );
+const filtered = tickets.filter(t => 
+  new Date(t.timestamp).toLocaleDateString('en-CA') === dateSelected
+);
 
   if (filtered.length === 0) {
     alert("No hay datos para exportar en esta fecha.");

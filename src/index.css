@@ -6,63 +6,95 @@
 
 @layer base {
   body {
-    @apply antialiased selection:bg-orange-100 selection:text-orange-900;
+    @apply antialiased transition-colors duration-700;
     font-family: 'Inter', sans-serif;
-    background-color: #f1f5f9;
+    background-color: #f8fafc;
+  }
+
+  /* 🌌 FONDO ESPACIAL: Un azul casi negro con un toque de profundidad */
+  .dark body {
+    background-color: #030712; 
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.05) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
   }
 }
 
 @layer components {
-  /* Efecto de tarjetas premium */
+  /* --- TARJETAS DE CRISTAL (GLASSMORPHISM) --- */
   .card-premium {
-    @apply bg-white rounded-[24px] border border-slate-200/60 shadow-sm transition-all duration-300 hover:shadow-xl hover:shadow-slate-200/50;
+    @apply bg-white rounded-[24px] border border-slate-200/60 shadow-sm transition-all duration-500;
   }
 
-  /* Inputs estilo Notion/Linear */
+  /* 🌙 DARK MODE IMPACTANTE */
+  .dark .card-premium {
+    background: rgba(15, 23, 42, 0.6); /* Transparencia para dejar ver el fondo */
+    backdrop-filter: blur(12px);
+    @apply border-slate-800/80 shadow-[0_0_40px_-15px_rgba(0,0,0,0.7)];
+    position: relative;
+  }
+
+  /* Borde de luz superior (Efecto 3D) */
+  .dark .card-premium::after {
+    content: "";
+    @apply absolute inset-0 rounded-[24px] pointer-events-none;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 40%, transparent 60%, rgba(255,255,255,0.02) 100%);
+  }
+
+  /* --- INPUTS QUE PARECEN TECH --- */
   .input-premium {
-    @apply bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none transition-all focus:bg-white focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500;
+    @apply bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 outline-none transition-all 
+           focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500;
   }
 
-  /* Botones con micro-interacciones */
+  .dark .input-premium {
+    background: rgba(2, 6, 23, 0.8);
+    @apply border-slate-800 text-slate-100 focus:border-orange-500/50 focus:shadow-[0_0_20px_-5px_rgba(249,115,22,0.2)];
+  }
+
+  /* Arreglo para la lista de bloques (donde sale ACD) */
+  .dark .bg-white {
+    background-color: rgba(30, 41, 59, 0.3) !important;
+    border-color: rgba(71, 85, 105, 0.2) !important;
+    @apply backdrop-blur-md;
+  }
+
+  /* --- BOTONES CON GLOW --- */
   .btn-primary {
-    @apply active:scale-95 transition-transform duration-100;
+    @apply active:scale-95 transition-all duration-300;
   }
 
-  /* Barra de scroll personalizada */
-  ::-webkit-scrollbar {
-    width: 8px;
+  .dark .btn-primary {
+    @apply shadow-[0_0_20px_-5px_rgba(249,115,22,0.4)] hover:shadow-[0_0_25px_-2px_rgba(249,115,22,0.5)];
   }
 
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
+  /* --- TEXTOS NEÓN --- */
+  .section-title {
+    @apply text-slate-900 dark:text-white font-bold tracking-tight;
   }
 
-  ::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full border-4 border-transparent bg-clip-padding hover:bg-slate-400;
+  .dark .section-title span {
+    @apply text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)];
+  }
+
+  /* Estilo para los ítems del historial */
+  .dark .border-b {
+    @apply border-slate-800/50;
+  }
+
+  /* El badge del contador de total en el historial */
+  .dark .bg-orange-100 {
+    @apply bg-orange-500/10 text-orange-400 border border-orange-500/20;
   }
 }
 
-/* Animación de entrada para las cards */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+/* --- ANIMACIÓN FLOTANTE --- */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
 }
 
-.animate-in {
-  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  height: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+.hover-float:hover {
+  animation: float 2s ease-in-out infinite;
 }

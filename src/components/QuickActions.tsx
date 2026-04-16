@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react'; // Eliminamos useState de aquí
 import { Download, Calendar, Trash2 } from 'lucide-react';
 
 interface QuickActionsProps {
   onExport: (date: string) => void;
   onClearAll: () => void;
+  date: string; // Recibimos la fecha controlada desde App.tsx
 }
 
-export const QuickActions = ({ onExport, onClearAll }: QuickActionsProps) => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+export const QuickActions = ({ onExport, onClearAll, date }: QuickActionsProps) => {
+  // 🗑️ ELIMINADA la línea: const [selectedDate, setSelectedDate] = useState(...)
+  // Ahora usamos "date" directamente de las props.
 
   return (
     <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm space-y-4">
@@ -24,8 +26,8 @@ export const QuickActions = ({ onExport, onClearAll }: QuickActionsProps) => {
           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-orange-500 transition-colors" size={16} />
           <input 
             type="date" 
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            value={date} // <--- Usa la prop 'date'
+            onChange={(e) => onExport(e.target.value)} // <--- Notifica el cambio al padre (App)
             className="w-full bg-slate-50 border-2 border-transparent rounded-2xl pl-10 pr-4 py-2.5 text-sm font-bold text-slate-700 focus:bg-white focus:border-orange-500/20 focus:ring-4 focus:ring-orange-500/5 transition-all outline-none"
           />
         </div>
@@ -34,7 +36,7 @@ export const QuickActions = ({ onExport, onClearAll }: QuickActionsProps) => {
       <div className="grid grid-cols-1 gap-3 pt-2">
         {/* Botón Exportar */}
         <button 
-          onClick={() => onExport(selectedDate)}
+          onClick={() => onExport(date)} // Usa la prop 'date'
           className="flex items-center justify-center gap-2 bg-orange-500 text-white p-3.5 rounded-2xl font-black text-xs hover:bg-orange-600 active:scale-95 transition-all shadow-lg shadow-orange-200"
         >
           <Download size={18} /> EXPORTAR EXCEL
